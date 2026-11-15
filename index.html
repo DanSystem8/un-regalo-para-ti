@@ -872,7 +872,7 @@ function Hero({ onNext }) {
     return (React.createElement("div", { className: "screen-hero fade-enter" },
         React.createElement("div", { className: "cover-bg", style: { backgroundImage: `url(${COVER.bg})` } }),
         React.createElement("div", { className: "cover-photos" },
-            ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map(k =>
+            ['p1', 'p2', 'p3', 'p4', 'p6'].map(k =>
                 React.createElement("img", { key: k, className: 'cover-ph ' + k, src: COVER[k], alt: '' }))),
         React.createElement("span", { className: "cover-sticker cs2", "aria-hidden": "true" }, "\uD83D\uDC9C"),
         React.createElement("span", { className: "cover-sticker cs3", "aria-hidden": "true" }, "\u2728"),
