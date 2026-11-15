@@ -119,7 +119,7 @@ body{font-family:'Lato',sans-serif;background:#f4b3c9;color:var(--berry);overflo
 
 /* ── LETTER SCREENS (la pagina de libro que se alarga) ── */
 .screen-letter{
-  --w:min(112vw,640px);
+  --w:min(100vw,640px);
   min-height:100vh;
   background:linear-gradient(180deg,#d995b0 0%,#c77c9a 100%);
   display:flex;flex-direction:column;align-items:center;
@@ -136,20 +136,22 @@ body{font-family:'Lato',sans-serif;background:#f4b3c9;color:var(--berry);overflo
 .book-bot{bottom:0;height:calc(var(--w)*365/650);background-image:var(--pg-bot);
   -webkit-mask-image:linear-gradient(transparent,#000 18%);mask-image:linear-gradient(transparent,#000 18%);}
 
-/* FOTOS AL FONDO (detrás del texto) */
-.photo-layer{
-  position:absolute;left:0;right:0;z-index:1;pointer-events:none;
-  top:calc(var(--w)*.38);bottom:calc(var(--w)*.48);
-  --ph:calc(var(--w)*.375);          /* alto de cada foto */
+/* FOTOS DENTRO DE LA CARTA (el texto fluye al lado, como en Word) */
+.letter-figure{
+  width:clamp(112px,41%,236px);
+  margin:4px 0 12px;padding:6px 6px 24px;
+  background:#fffdfa;border:1px solid rgba(178,51,106,.16);
+  box-shadow:0 8px 20px rgba(142,47,90,.22);
+  position:relative;z-index:0;
 }
-.bg-photo{
-  position:absolute;width:30%;aspect-ratio:4/5;object-fit:cover;
-  opacity:var(--photo-opacity,.34);          /* ← sube/baja para que se vean más o menos */
-  border:4px solid rgba(255,255,255,.95);border-radius:3px;
-  box-shadow:0 6px 18px rgba(142,47,90,.25);
+.letter-figure img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:2px;}
+.letter-figure::after{
+  content:"\2661";position:absolute;left:0;right:0;bottom:2px;text-align:center;
+  color:#d9668c;font-size:15px;line-height:1;font-family:'Dancing Script',cursive;
 }
-.bg-photo.l{left:17%;}
-.bg-photo.r{right:17%;}
+.letter-figure.l{float:left;margin-left:0;margin-right:18px;transform:rotate(-2deg);}
+.letter-figure.r{float:right;margin-right:0;margin-left:18px;transform:rotate(2deg);}
+.letter-body::after{content:"";display:block;clear:both;}
 
 .book-content{
   position:relative;z-index:2;color:var(--ink);
@@ -480,7 +482,7 @@ function spawnConfetti() {
     }
 }
 // ── TEXTO DE LA CARTA (párrafos con aparición al leer) ───────
-function LetterText({ text }) {
+function LetterText({ text, photos = [] }) {
     const ref = useRef(null);
     useEffect(() => {
         const el = ref.current;
@@ -513,8 +515,23 @@ function LetterText({ text }) {
         const m = part.match(/^\*\*([^*]+)\*\*$/);
         return m ? React.createElement('strong', { key: i }, m[1]) : part;
     });
-    return React.createElement('div', { className: 'letter-body', ref },
-        paras.map((p, i) => React.createElement('p', { key: i }, inline(p))));
+    // reparte las fotos entre los párrafos, alternando lados
+    const slots = {};
+    if (photos.length) {
+        photos.forEach((src, i) => {
+            const pos = Math.min(paras.length - 1,
+                Math.max(1, Math.round((i + 1) * paras.length / (photos.length + 1))));
+            (slots[pos] = slots[pos] || []).push({ src: src, side: i % 2 === 0 ? 'l' : 'r' });
+        });
+    }
+    const kids = [];
+    paras.forEach((p, i) => {
+        (slots[i] || []).forEach((f, j) => kids.push(
+            React.createElement('figure', { key: 'f' + i + '-' + j, className: 'letter-figure ' + f.side },
+                React.createElement('img', { src: f.src, alt: '' }))));
+        kids.push(React.createElement('p', { key: i }, inline(p)));
+    });
+    return React.createElement('div', { className: 'letter-body', ref }, kids);
 }
 // ── BARRA DE PROGRESO DE LECTURA ────────────────────────────
 function ReadProgress() {
@@ -536,10 +553,10 @@ function ReadProgress() {
     return React.createElement('div', { className: 'read-progress' },
         React.createElement('span', { style: { width: pct + '%' } }));
 }
-// ── MÚSICA (Thinking Out Loud · instrumental acústico) ───────
+// ── MÚSICA (Can't Help Falling in Love · instrumental acústico) ──
 // 1) Si dejas un audio junto a este HTML, se usa ese (en bucle).
 //    Cambia el nombre de abajo si tu archivo se llama distinto.
-const MUSIC_FILE = "Thinking Out Loud (Instrumental).mp3";
+const MUSIC_FILE = "Can't Help Falling in Love (Instrumental).mp3";
 
 function MusicBox() {
     const [on, setOn] = useState(false);
@@ -570,7 +587,7 @@ function MusicBox() {
             s.ctx.close().catch(() => { });
     }, []);
 
-    // ── instrumental acústico de Thinking Out Loud (si no hay mp3) ──
+    // ── instrumental acústico de Can't Help Falling in Love (si no hay mp3) ──
     const startSynth = () => {
         const Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx)
@@ -664,40 +681,38 @@ function MusicBox() {
             o.stop(at + dur + 0.05);
         };
 
-        // acordes de la canción (Re mayor)
+        // acordes: C – Em – Am – F – C – G – F – C (vals lento)
         const CH = {
-            D: { b: 73.42, t: [146.83, 220.00, 293.66, 369.99] },
-            Df: { b: 92.50, t: [146.83, 220.00, 293.66, 369.99] },
-            G: { b: 98.00, t: [146.83, 196.00, 246.94, 293.66] },
-            A: { b: 110.00, t: [164.81, 220.00, 277.18, 329.63] },
-            Bm: { b: 123.47, t: [185.00, 246.94, 293.66, 369.99] },
-            Em: { b: 82.41, t: [123.47, 164.81, 196.00, 246.94] }
+            C:  { b: 65.41,  t: [130.81, 164.81, 196.00, 261.63] },
+            Em: { b: 82.41,  t: [164.81, 196.00, 246.94, 329.63] },
+            Am: { b: 110.00, t: [220.00, 261.63, 329.63, 440.00] },
+            F:  { b: 87.31,  t: [174.61, 220.00, 261.63, 349.23] },
+            G:  { b: 98.00,  t: [196.00, 246.94, 293.66, 392.00] }
         };
-        const prog = ['D', 'Df', 'G', 'A', 'D', 'Df', 'G', 'A',
-            'Bm', 'A', 'G', 'A', 'D', 'Df', 'G', 'A'];
+        const prog = ['C', 'Em', 'Am', 'F', 'C', 'G', 'F', 'C',
+            'C', 'Em', 'Am', 'F', 'C', 'G', 'F', 'C'];
 
-        const beat = 60 / 79;          // 79 BPM, como el original
-        const barDur = beat * 4;
-        const pattern = [-1, 1, 2, 3, 2, 1, 3, 2]; // arpegio en corcheas
+        const beat = 60 / 66;            // vals lento, 66 BPM
+        const barDur = beat * 3;
+        // melodía descendente (Do–Si–La–Sol) en negras suaves
+        const MEL = [0, -2, -4, -5, -4, -2, 0, -5];
+        const note = (semi) => 523.25 * Math.pow(2, semi / 12); // desde Do5
 
         const scheduleBar = (start, idx) => {
             const c = CH[prog[idx % prog.length]];
-            bass(c.b, start, 2.6);
-            for (let i = 0; i < 8; i++) {
-                const at = start + i * (beat / 2);
-                if (i === 0) {
-                    // pequeño "rasgueo" al inicio del compás
-                    pluck(c.t[1], at, 0.058, 1.7);
-                    pluck(c.t[2], at + 0.02, 0.045, 1.5);
-                    continue;
-                }
-                const n = pattern[i];
-                if (n < 0)
-                    continue;
-                pluck(c.t[n], at, i % 2 === 0 ? 0.05 : 0.042, 1.4);
-            }
-            pad(c.t[0], start, 3.4, 0.016);
-            pad(c.t[2], start, 3.4, 0.014);
+            bass(c.b, start, beat * 2.2);
+            // "pam-pam" del vals en los tiempos 2 y 3
+            pluck(c.t[1], start + beat, 0.050, beat * 1.4);
+            pluck(c.t[2], start + beat + 0.015, 0.032, beat * 1.3);
+            pluck(c.t[1], start + beat * 2, 0.044, beat * 1.4);
+            pluck(c.t[3], start + beat * 2 + 0.015, 0.030, beat * 1.3);
+            // melodía
+            const m0 = MEL[(idx * 2) % MEL.length];
+            const m1 = MEL[(idx * 2 + 1) % MEL.length];
+            pluck(note(m0), start + beat * 0.15, 0.055, beat * 1.7);
+            pluck(note(m1), start + beat * 1.6, 0.042, beat * 1.5);
+            pad(c.t[0], start, barDur * 1.1, 0.014);
+            pad(c.t[2], start, barDur * 1.1, 0.012);
         };
 
         s.bar = 0;
@@ -754,8 +769,8 @@ function MusicBox() {
     return React.createElement('button', {
         className: 'music-btn' + (on ? ' on' : ''),
         onClick: toggle,
-        'aria-label': on ? 'Silenciar música' : 'Activar música (Thinking Out Loud)',
-        title: on ? 'Silenciar música' : 'Thinking Out Loud · instrumental',
+        'aria-label': on ? 'Silenciar música' : 'Activar música (Can\'t Help Falling in Love)',
+        title: on ? 'Silenciar música' : 'Can\'t Help Falling in Love · instrumental',
     }, on ? '🎵' : '🔇');
 }
 // ── SCREEN 1: COUNTDOWN ──────────────────────────────────────
@@ -874,17 +889,10 @@ function Hero({ onNext }) {
 }
 // ── PÁGINA DE LIBRO (se alarga según el texto) ─────────────
 // photos = fotos que van DETRÁS del texto, repartidas a lo largo de la carta
-function Book({ photos = [], children }) {
-    const n = photos.length;
+function Book({ children }) {
     return (React.createElement("div", { className: "book" },
         React.createElement("div", { className: "book-top" }),
         React.createElement("div", { className: "book-bot" }),
-        React.createElement("div", { className: "photo-layer" }, photos.map((src, i) => {
-            const side = i % 2 === 0 ? 'l' : 'r';
-            const top = n === 1 ? '30%' : `calc((100% - var(--ph)) * ${i / (n - 1)})`;
-            const rot = side === 'l' ? -5 : 4;
-            return React.createElement("img", { key: i, className: 'bg-photo ' + side, src: src, alt: "", style: { top: top, transform: `rotate(${rot}deg)` } });
-        })),
         React.createElement("div", { className: "book-content" }, children)));
 }
 // ── SCREEN 5: LETTER 1 ───────────────────────────────────────
@@ -892,10 +900,10 @@ function Letter1({ onNext }) {
     return (React.createElement("div", { className: "screen-letter fade-enter" },
         React.createElement(ReadProgress, null),
         React.createElement(Petals, { emojis: ['🌸', '💗', '🌷', '✨', '🤍', '💫'] }),
-        React.createElement(Book, { photos: [P[3], P[12], P[10], P[5]] },
+        React.createElement(Book, null,
             React.createElement("h2", null, "Happy Birthday Darlingg' 🤍"),
             React.createElement("div", { className: "letter-divider" }),
-            React.createElement(LetterText, { text: CARTA_1 })),
+            React.createElement(LetterText, { text: CARTA_1, photos: [P[3], P[12], P[10], P[5]] })),
         React.createElement("button", { className: "btn-ghost", onClick: onNext }, "Continuar \u2192")));
 }
 // ── SCREEN 6: LETTER 2 ───────────────────────────────────────
@@ -903,10 +911,10 @@ function Letter2({ onNext }) {
     return (React.createElement("div", { className: "screen-letter fade-enter" },
         React.createElement(ReadProgress, null),
         React.createElement(Petals, { emojis: ['🌸', '💗', '🌷', '✨', '🤍', '💫'] }),
-        React.createElement(Book, { photos: [P[2], P[7], P[6], P[11]] },
+        React.createElement(Book, null,
             React.createElement("h2", null, "Y una cosa m\u00E1s\u2026 \uD83C\uDF38"),
             React.createElement("div", { className: "letter-divider" }),
-            React.createElement(LetterText, { text: CARTA_2 }),
+            React.createElement(LetterText, { text: CARTA_2, photos: [P[2], P[7], P[6], P[11]] }),
             React.createElement("div", { className: "letter-sign" }, "\u2014 Con cariño y amor, Daniel. \uD83D\uDC95")),
         React.createElement("button", { className: "btn-ghost", onClick: onNext }, "\u00BFListoooo? \uD83C\uDF80")));
 }
